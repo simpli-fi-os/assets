@@ -1,0 +1,2532 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Parallel Claude | The Complete Guide to Multi-Instance Workflows</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600&family=Instrument+Serif:ital@0;1&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* Modal Styles */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(10px);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .modal-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .modal {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-subtle);
+            border-radius: 24px;
+            max-width: 900px;
+            width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+            transform: translateY(20px) scale(0.95);
+            transition: transform 0.3s ease;
+            position: relative;
+        }
+
+        .modal-overlay.active .modal {
+            transform: translateY(0) scale(1);
+        }
+
+        .modal-header {
+            position: sticky;
+            top: 0;
+            background: var(--bg-secondary);
+            padding: 2rem 2.5rem 1.5rem;
+            border-bottom: 1px solid var(--border-subtle);
+            z-index: 10;
+        }
+
+        .modal-close {
+            position: absolute;
+            top: 1.5rem;
+            right: 1.5rem;
+            width: 40px;
+            height: 40px;
+            border: 1px solid var(--border-subtle);
+            border-radius: 10px;
+            background: var(--bg-card);
+            color: var(--text-secondary);
+            font-size: 1.5rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+        }
+
+        .modal-close:hover {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            border-color: var(--border-medium);
+        }
+
+        .modal-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: rgba(167, 139, 250, 0.15);
+            border: 1px solid rgba(167, 139, 250, 0.3);
+            padding: 0.4rem 0.8rem;
+            border-radius: 100px;
+            font-size: 0.75rem;
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--accent-purple);
+            margin-bottom: 1rem;
+        }
+
+        .modal-title {
+            font-family: 'Instrument Serif', serif;
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .modal-subtitle {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+        }
+
+        .modal-content {
+            padding: 2rem 2.5rem 2.5rem;
+        }
+
+        /* Tutorial Steps */
+        .tutorial-progress {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .progress-step {
+            flex: 1;
+            height: 4px;
+            background: var(--bg-tertiary);
+            border-radius: 2px;
+            transition: background 0.3s ease;
+        }
+
+        .progress-step.active {
+            background: var(--accent-purple);
+        }
+
+        .progress-step.completed {
+            background: var(--accent-green);
+        }
+
+        .tutorial-step {
+            display: none;
+            animation: fadeIn 0.4s ease;
+        }
+
+        .tutorial-step.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .step-number-large {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            color: var(--accent-purple);
+            margin-bottom: 0.5rem;
+        }
+
+        .step-title-large {
+            font-family: 'Instrument Serif', serif;
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .step-description-large {
+            color: var(--text-secondary);
+            line-height: 1.8;
+            margin-bottom: 1.5rem;
+        }
+
+        .step-visual {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 16px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .visual-label {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-bottom: 1rem;
+        }
+
+        .screenshot-placeholder {
+            background: var(--bg-tertiary);
+            border: 2px dashed var(--border-medium);
+            border-radius: 12px;
+            padding: 3rem 2rem;
+            text-align: center;
+            color: var(--text-muted);
+        }
+
+        .screenshot-placeholder .icon {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .checklist {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .checklist-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.75rem;
+            padding: 1rem;
+            background: var(--bg-tertiary);
+            border-radius: 10px;
+            transition: all 0.2s ease;
+        }
+
+        .checklist-item:hover {
+            background: var(--bg-card);
+        }
+
+        .check-icon {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: rgba(74, 222, 128, 0.15);
+            border: 1px solid rgba(74, 222, 128, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--accent-green);
+            font-size: 0.8rem;
+            flex-shrink: 0;
+        }
+
+        .checklist-text {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+
+        .checklist-text strong {
+            color: var(--text-primary);
+        }
+
+        .warning-box {
+            display: flex;
+            align-items: flex-start;
+            gap: 1rem;
+            padding: 1.25rem;
+            background: rgba(255, 107, 53, 0.1);
+            border: 1px solid rgba(255, 107, 53, 0.2);
+            border-radius: 12px;
+            margin-bottom: 1.5rem;
+        }
+
+        .warning-icon {
+            font-size: 1.25rem;
+            flex-shrink: 0;
+        }
+
+        .warning-text {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            line-height: 1.6;
+        }
+
+        .warning-text strong {
+            color: var(--accent-orange);
+        }
+
+        .info-box {
+            display: flex;
+            align-items: flex-start;
+            gap: 1rem;
+            padding: 1.25rem;
+            background: rgba(91, 159, 255, 0.1);
+            border: 1px solid rgba(91, 159, 255, 0.2);
+            border-radius: 12px;
+            margin-bottom: 1.5rem;
+        }
+
+        .info-icon {
+            font-size: 1.25rem;
+            flex-shrink: 0;
+        }
+
+        .info-text {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            line-height: 1.6;
+        }
+
+        .info-text strong {
+            color: var(--accent-blue);
+        }
+
+        .prompt-example {
+            background: var(--bg-primary);
+            border: 1px solid var(--border-subtle);
+            border-radius: 12px;
+            padding: 1.25rem;
+            margin-bottom: 1rem;
+        }
+
+        .prompt-label {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.7rem;
+            color: var(--accent-purple);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-bottom: 0.75rem;
+        }
+
+        .prompt-text {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            color: var(--text-primary);
+            line-height: 1.7;
+            white-space: pre-wrap;
+        }
+
+        .nav-buttons {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 2rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid var(--border-subtle);
+        }
+
+        .nav-btn {
+            padding: 0.875rem 1.5rem;
+            border-radius: 10px;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.9rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .nav-btn-back {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            color: var(--text-secondary);
+        }
+
+        .nav-btn-back:hover {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+        }
+
+        .nav-btn-next {
+            background: linear-gradient(135deg, var(--accent-purple), var(--accent-blue));
+            border: none;
+            color: white;
+            margin-left: auto;
+        }
+
+        .nav-btn-next:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(167, 139, 250, 0.3);
+        }
+
+        .nav-btn-next:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        /* Pricing cards in modal */
+        .pricing-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .pricing-card {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-subtle);
+            border-radius: 12px;
+            padding: 1.25rem;
+            text-align: center;
+            transition: all 0.2s ease;
+        }
+
+        .pricing-card.recommended {
+            border-color: var(--accent-purple);
+            background: rgba(167, 139, 250, 0.1);
+        }
+
+        .pricing-card.recommended::before {
+            content: 'Recommended';
+            display: block;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.65rem;
+            color: var(--accent-purple);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-bottom: 0.5rem;
+        }
+
+        .pricing-name {
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+        }
+
+        .pricing-price {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1.25rem;
+            color: var(--accent-orange);
+            margin-bottom: 0.5rem;
+        }
+
+        .pricing-note {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        /* Folder structure visual */
+        .folder-structure {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            line-height: 1.8;
+        }
+
+        .folder-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.25rem 0;
+        }
+
+        .folder-item.indent-1 { padding-left: 1.5rem; }
+        .folder-item.indent-2 { padding-left: 3rem; }
+
+        .folder-icon { color: var(--accent-blue); }
+        .file-icon { color: var(--text-muted); }
+        .file-name { color: var(--text-secondary); }
+        .file-name.highlight { color: var(--accent-green); }
+
+        /* Click hint for the card */
+        .click-hint {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.8rem;
+            color: var(--accent-purple);
+            margin-top: 1rem;
+            padding: 0.5rem 1rem;
+            background: rgba(167, 139, 250, 0.1);
+            border-radius: 100px;
+            transition: all 0.2s ease;
+        }
+
+        .method-card:hover .click-hint {
+            background: rgba(167, 139, 250, 0.2);
+        }
+        :root {
+            --bg-primary: #0a0a0b;
+            --bg-secondary: #111113;
+            --bg-tertiary: #18181b;
+            --bg-card: #1a1a1d;
+            --accent-orange: #ff6b35;
+            --accent-coral: #ff8f6b;
+            --accent-blue: #5b9fff;
+            --accent-purple: #a78bfa;
+            --accent-green: #4ade80;
+            --accent-cyan: #22d3ee;
+            --text-primary: #fafafa;
+            --text-secondary: #a1a1aa;
+            --text-muted: #71717a;
+            --border-subtle: #27272a;
+            --border-medium: #3f3f46;
+            --glow-orange: rgba(255, 107, 53, 0.15);
+            --glow-blue: rgba(91, 159, 255, 0.15);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: 'DM Sans', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.7;
+            overflow-x: hidden;
+        }
+
+        /* Noise texture overlay */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            opacity: 0.03;
+            z-index: 1000;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+        }
+
+        /* Navigation */
+        nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
+            padding: 1.5rem 3rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: linear-gradient(to bottom, var(--bg-primary), transparent);
+            backdrop-filter: blur(20px);
+        }
+
+        .logo {
+            font-family: 'Instrument Serif', serif;
+            font-size: 1.5rem;
+            font-style: italic;
+            color: var(--accent-orange);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .logo-icon {
+            width: 32px;
+            height: 32px;
+            background: linear-gradient(135deg, var(--accent-orange), var(--accent-coral));
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-style: normal;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 2.5rem;
+            list-style: none;
+        }
+
+        .nav-links a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: color 0.3s ease;
+        }
+
+        .nav-links a:hover {
+            color: var(--text-primary);
+        }
+
+        /* Hero Section */
+        .hero {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            padding: 8rem 3rem 4rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -20%;
+            width: 80%;
+            height: 150%;
+            background: radial-gradient(ellipse at center, var(--glow-orange) 0%, transparent 60%);
+            pointer-events: none;
+            animation: pulse 8s ease-in-out infinite;
+        }
+
+        .hero::after {
+            content: '';
+            position: absolute;
+            bottom: -30%;
+            left: -20%;
+            width: 60%;
+            height: 100%;
+            background: radial-gradient(ellipse at center, var(--glow-blue) 0%, transparent 50%);
+            pointer-events: none;
+            animation: pulse 8s ease-in-out infinite reverse;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.5; transform: scale(1); }
+            50% { opacity: 0.8; transform: scale(1.1); }
+        }
+
+        .hero-content {
+            max-width: 900px;
+            position: relative;
+            z-index: 10;
+        }
+
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-subtle);
+            padding: 0.5rem 1rem;
+            border-radius: 100px;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-bottom: 2rem;
+            animation: fadeInUp 0.8s ease forwards;
+        }
+
+        .hero-badge::before {
+            content: '';
+            width: 8px;
+            height: 8px;
+            background: var(--accent-green);
+            border-radius: 50%;
+            animation: blink 2s ease-in-out infinite;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        .hero h1 {
+            font-family: 'Instrument Serif', serif;
+            font-size: clamp(3rem, 8vw, 5.5rem);
+            font-weight: 400;
+            line-height: 1.1;
+            margin-bottom: 1.5rem;
+            animation: fadeInUp 0.8s ease 0.1s forwards;
+            opacity: 0;
+        }
+
+        .hero h1 em {
+            font-style: italic;
+            background: linear-gradient(135deg, var(--accent-orange), var(--accent-coral));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .hero-subtitle {
+            font-size: 1.25rem;
+            color: var(--text-secondary);
+            max-width: 600px;
+            margin-bottom: 3rem;
+            animation: fadeInUp 0.8s ease 0.2s forwards;
+            opacity: 0;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .hero-stats {
+            display: flex;
+            gap: 4rem;
+            animation: fadeInUp 0.8s ease 0.3s forwards;
+            opacity: 0;
+        }
+
+        .stat {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .stat-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 2.5rem;
+            font-weight: 600;
+            color: var(--accent-orange);
+        }
+
+        .stat-label {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+
+        /* Grid decoration */
+        .grid-bg {
+            position: absolute;
+            inset: 0;
+            background-image: 
+                linear-gradient(var(--border-subtle) 1px, transparent 1px),
+                linear-gradient(90deg, var(--border-subtle) 1px, transparent 1px);
+            background-size: 60px 60px;
+            opacity: 0.3;
+            mask-image: radial-gradient(ellipse at center, black 20%, transparent 70%);
+        }
+
+        /* Methods Section */
+        .methods {
+            padding: 6rem 3rem;
+            position: relative;
+        }
+
+        .section-header {
+            text-align: center;
+            margin-bottom: 5rem;
+        }
+
+        .section-label {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            color: var(--accent-orange);
+            text-transform: uppercase;
+            letter-spacing: 0.2em;
+            margin-bottom: 1rem;
+        }
+
+        .section-title {
+            font-family: 'Instrument Serif', serif;
+            font-size: clamp(2rem, 5vw, 3.5rem);
+            font-weight: 400;
+            margin-bottom: 1rem;
+        }
+
+        .section-subtitle {
+            color: var(--text-secondary);
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        /* Method Cards */
+        .methods-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 2rem;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .method-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 24px;
+            padding: 2.5rem;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .method-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--card-accent, var(--accent-orange)), transparent);
+            opacity: 0;
+            transition: opacity 0.4s ease;
+        }
+
+        .method-card:hover {
+            border-color: var(--border-medium);
+            transform: translateY(-4px);
+        }
+
+        .method-card:hover::before {
+            opacity: 1;
+        }
+
+        .method-card.featured {
+            grid-column: span 2;
+            background: linear-gradient(135deg, var(--bg-card) 0%, var(--bg-tertiary) 100%);
+        }
+
+        @media (max-width: 900px) {
+            .method-card.featured {
+                grid-column: span 1;
+            }
+        }
+
+        .method-icon {
+            width: 56px;
+            height: 56px;
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 1.5rem;
+            font-size: 1.5rem;
+            background: var(--icon-bg, var(--glow-orange));
+            border: 1px solid var(--icon-border, rgba(255, 107, 53, 0.3));
+        }
+
+        .method-number {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-bottom: 0.5rem;
+        }
+
+        .method-title {
+            font-family: 'Instrument Serif', serif;
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .method-description {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .method-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .tag {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.7rem;
+            padding: 0.35rem 0.75rem;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-subtle);
+            border-radius: 100px;
+            color: var(--text-secondary);
+        }
+
+        /* Visual Diagram */
+        .diagram {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-subtle);
+            border-radius: 16px;
+            padding: 2rem;
+            margin-top: 1.5rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .diagram-title {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-bottom: 1.5rem;
+        }
+
+        /* Terminal Visual */
+        .terminal-visual {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .terminal-window {
+            flex: 1;
+            min-width: 140px;
+            background: var(--bg-primary);
+            border: 1px solid var(--border-subtle);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .terminal-header {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.75rem 1rem;
+            background: var(--bg-tertiary);
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .terminal-dots {
+            display: flex;
+            gap: 6px;
+        }
+
+        .terminal-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+
+        .terminal-dot.red { background: #ff5f57; }
+        .terminal-dot.yellow { background: #ffbd2e; }
+        .terminal-dot.green { background: #28ca42; }
+
+        .terminal-title {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            margin-left: auto;
+        }
+
+        .terminal-body {
+            padding: 1rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem;
+            color: var(--accent-green);
+            min-height: 80px;
+        }
+
+        .terminal-line {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.5rem;
+            opacity: 0;
+            animation: typeIn 0.5s ease forwards;
+        }
+
+        .terminal-line:nth-child(1) { animation-delay: 0.2s; }
+        .terminal-line:nth-child(2) { animation-delay: 0.4s; }
+        .terminal-line:nth-child(3) { animation-delay: 0.6s; }
+
+        @keyframes typeIn {
+            from { opacity: 0; transform: translateX(-10px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        .prompt { color: var(--accent-purple); }
+        .command { color: var(--text-primary); }
+        .output { color: var(--text-secondary); }
+        .success { color: var(--accent-green); }
+
+        /* Worktree Visual */
+        .worktree-visual {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 1rem;
+            padding: 1rem 0;
+        }
+
+        .worktree-branch {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .branch-node {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.7rem;
+            font-weight: 600;
+            position: relative;
+        }
+
+        .branch-node.main {
+            background: var(--accent-orange);
+            color: var(--bg-primary);
+        }
+
+        .branch-node.worktree {
+            background: var(--bg-tertiary);
+            border: 2px solid var(--accent-blue);
+            color: var(--accent-blue);
+        }
+
+        .branch-label {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.65rem;
+            color: var(--text-muted);
+        }
+
+        .connector {
+            width: 40px;
+            height: 2px;
+            background: linear-gradient(90deg, var(--accent-orange), var(--accent-blue));
+            position: relative;
+        }
+
+        .connector::after {
+            content: '';
+            position: absolute;
+            right: -4px;
+            top: -3px;
+            width: 8px;
+            height: 8px;
+            border-right: 2px solid var(--accent-blue);
+            border-top: 2px solid var(--accent-blue);
+            transform: rotate(45deg);
+        }
+
+        /* Flow Visual */
+        .flow-visual {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+        }
+
+        .flow-step {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .flow-icon {
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-subtle);
+        }
+
+        .flow-label {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.6rem;
+            color: var(--text-muted);
+            text-align: center;
+            max-width: 60px;
+        }
+
+        .flow-arrow {
+            font-size: 1.2rem;
+            color: var(--text-muted);
+        }
+
+        /* Agent Grid Visual */
+        .agent-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 0.75rem;
+        }
+
+        .agent-cell {
+            aspect-ratio: 1;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-subtle);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.65rem;
+            color: var(--text-muted);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .agent-cell.active {
+            border-color: var(--accent-green);
+            box-shadow: 0 0 20px rgba(74, 222, 128, 0.2);
+        }
+
+        .agent-cell.active::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, rgba(74, 222, 128, 0.1), transparent);
+        }
+
+        .agent-pulse {
+            width: 6px;
+            height: 6px;
+            background: var(--accent-green);
+            border-radius: 50%;
+            animation: pulse-dot 1.5s ease-in-out infinite;
+        }
+
+        @keyframes pulse-dot {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(1.5); }
+        }
+
+        /* Quick Start Section */
+        .quickstart {
+            padding: 6rem 3rem;
+            background: var(--bg-secondary);
+            position: relative;
+        }
+
+        .quickstart::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--border-subtle), transparent);
+        }
+
+        .quickstart-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 4rem;
+            max-width: 1200px;
+            margin: 0 auto;
+            align-items: center;
+        }
+
+        @media (max-width: 900px) {
+            .quickstart-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .quickstart-content h2 {
+            font-family: 'Instrument Serif', serif;
+            font-size: 2.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .quickstart-content p {
+            color: var(--text-secondary);
+            margin-bottom: 2rem;
+        }
+
+        .shortcut-list {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .shortcut-item {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 1rem 1.5rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 12px;
+            transition: all 0.3s ease;
+        }
+
+        .shortcut-item:hover {
+            border-color: var(--border-medium);
+            transform: translateX(8px);
+        }
+
+        .shortcut-keys {
+            display: flex;
+            gap: 0.25rem;
+        }
+
+        .key {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            padding: 0.4rem 0.6rem;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-medium);
+            border-radius: 6px;
+            color: var(--text-primary);
+            min-width: 28px;
+            text-align: center;
+            box-shadow: 0 2px 0 var(--border-subtle);
+        }
+
+        .shortcut-desc {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        /* Code Block */
+        .code-block {
+            background: var(--bg-primary);
+            border: 1px solid var(--border-subtle);
+            border-radius: 16px;
+            overflow: hidden;
+        }
+
+        .code-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 1rem 1.5rem;
+            background: var(--bg-tertiary);
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .code-filename {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+
+        .code-copy {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.7rem;
+            padding: 0.4rem 0.8rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 6px;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .code-copy:hover {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+        }
+
+        .code-content {
+            padding: 1.5rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            line-height: 1.8;
+            overflow-x: auto;
+        }
+
+        .code-line {
+            display: flex;
+        }
+
+        .line-number {
+            color: var(--text-muted);
+            min-width: 2rem;
+            user-select: none;
+        }
+
+        .code-text {
+            color: var(--text-primary);
+        }
+
+        .code-comment { color: var(--text-muted); }
+        .code-keyword { color: var(--accent-purple); }
+        .code-string { color: var(--accent-green); }
+        .code-function { color: var(--accent-blue); }
+
+        /* Workflow Section */
+        .workflow {
+            padding: 6rem 3rem;
+        }
+
+        .workflow-container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        .workflow-steps {
+            position: relative;
+            padding-left: 3rem;
+        }
+
+        .workflow-steps::before {
+            content: '';
+            position: absolute;
+            left: 15px;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: linear-gradient(to bottom, var(--accent-orange), var(--accent-blue), var(--accent-purple));
+        }
+
+        .workflow-step {
+            position: relative;
+            padding: 2rem 0;
+        }
+
+        .step-marker {
+            position: absolute;
+            left: -3rem;
+            top: 2rem;
+            width: 32px;
+            height: 32px;
+            background: var(--bg-primary);
+            border: 2px solid var(--accent-orange);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--accent-orange);
+        }
+
+        .step-content {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 16px;
+            padding: 2rem;
+        }
+
+        .step-title {
+            font-family: 'Instrument Serif', serif;
+            font-size: 1.3rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .step-description {
+            color: var(--text-secondary);
+            margin-bottom: 1rem;
+        }
+
+        .step-tip {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.75rem;
+            padding: 1rem;
+            background: var(--glow-orange);
+            border-left: 3px solid var(--accent-orange);
+            border-radius: 0 8px 8px 0;
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+
+        .tip-icon {
+            color: var(--accent-orange);
+            font-size: 1rem;
+        }
+
+        /* Best Practices */
+        .practices {
+            padding: 6rem 3rem;
+            background: var(--bg-secondary);
+        }
+
+        .practices-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .practice-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 16px;
+            padding: 2rem;
+            transition: all 0.3s ease;
+        }
+
+        .practice-card:hover {
+            border-color: var(--border-medium);
+        }
+
+        .practice-icon {
+            font-size: 2rem;
+            margin-bottom: 1rem;
+        }
+
+        .practice-title {
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .practice-desc {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        /* CTA Section */
+        .cta {
+            padding: 8rem 3rem;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .cta::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 800px;
+            height: 800px;
+            background: radial-gradient(circle, var(--glow-orange) 0%, transparent 60%);
+            pointer-events: none;
+        }
+
+        .cta-content {
+            position: relative;
+            z-index: 10;
+        }
+
+        .cta h2 {
+            font-family: 'Instrument Serif', serif;
+            font-size: clamp(2rem, 5vw, 3.5rem);
+            margin-bottom: 1.5rem;
+        }
+
+        .cta p {
+            color: var(--text-secondary);
+            max-width: 500px;
+            margin: 0 auto 2.5rem;
+        }
+
+        .cta-buttons {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            font-family: 'DM Sans', sans-serif;
+            font-size: 1rem;
+            font-weight: 500;
+            padding: 1rem 2rem;
+            border-radius: 12px;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent-orange), var(--accent-coral));
+            color: var(--bg-primary);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 40px rgba(255, 107, 53, 0.3);
+        }
+
+        .btn-secondary {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            color: var(--text-primary);
+        }
+
+        .btn-secondary:hover {
+            border-color: var(--border-medium);
+            background: var(--bg-tertiary);
+        }
+
+        /* Footer */
+        footer {
+            padding: 3rem;
+            border-top: 1px solid var(--border-subtle);
+            text-align: center;
+        }
+
+        .footer-content {
+            color: var(--text-muted);
+            font-size: 0.85rem;
+        }
+
+        .footer-content a {
+            color: var(--accent-orange);
+            text-decoration: none;
+        }
+
+        /* Scroll animations */
+        .reveal {
+            opacity: 0;
+            transform: translateY(40px);
+            transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .reveal.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            nav {
+                padding: 1rem 1.5rem;
+            }
+
+            .nav-links {
+                display: none;
+            }
+
+            .hero {
+                padding: 6rem 1.5rem 3rem;
+            }
+
+            .hero-stats {
+                flex-direction: column;
+                gap: 1.5rem;
+            }
+
+            .methods, .quickstart, .workflow, .practices, .cta {
+                padding: 4rem 1.5rem;
+            }
+
+            .methods-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .agent-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+    </style>
+</head>
+<body>
+    <nav>
+        <a href="#" class="logo">
+            <span class="logo-icon">∥</span>
+            Parallel Claude
+        </a>
+        <ul class="nav-links">
+            <li><a href="#methods">Methods</a></li>
+            <li><a href="#quickstart">Quick Start</a></li>
+            <li><a href="#workflow">Workflow</a></li>
+            <li><a href="#practices">Best Practices</a></li>
+        </ul>
+    </nav>
+
+    <section class="hero">
+        <div class="grid-bg"></div>
+        <div class="hero-content">
+            <div class="hero-badge">
+                <span>Complete Visual Guide • Updated January 2026</span>
+            </div>
+            <h1>Run Multiple<br><em>Claude Instances</em><br>Like a Pro</h1>
+            <p class="hero-subtitle">Master parallel workflows, maximize your productivity, and accomplish multiple tasks simultaneously with proven techniques from the community.</p>
+            <div class="hero-stats">
+                <div class="stat">
+                    <span class="stat-value">5</span>
+                    <span class="stat-label">Core Methods</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-value">3-4×</span>
+                    <span class="stat-label">Productivity Boost</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-value">∞</span>
+                    <span class="stat-label">Possibilities</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="methods" id="methods">
+        <div class="section-header reveal">
+            <div class="section-label">Techniques</div>
+            <h2 class="section-title">Choose Your Method</h2>
+            <p class="section-subtitle">From simple multi-tab setups to sophisticated daemon-based orchestration, pick the approach that fits your workflow.</p>
+        </div>
+
+        <div class="methods-grid">
+            <!-- Method 1: Multiple Terminals -->
+            <div class="method-card reveal" style="--card-accent: var(--accent-orange);">
+                <div class="method-icon" style="--icon-bg: var(--glow-orange); --icon-border: rgba(255, 107, 53, 0.3);">
+                    ⌨️
+                </div>
+                <div class="method-number">Method 01</div>
+                <h3 class="method-title">Multiple Terminal Sessions</h3>
+                <p class="method-description">Leverage Claude Max by opening multiple terminal instances within the same workspace. Toggle between them while tasks process.</p>
+                <div class="method-tags">
+                    <span class="tag">Claude Code</span>
+                    <span class="tag">Beginner</span>
+                    <span class="tag">No Setup</span>
+                </div>
+                <div class="diagram">
+                    <div class="diagram-title">Visual: Terminal Layout</div>
+                    <div class="terminal-visual">
+                        <div class="terminal-window">
+                            <div class="terminal-header">
+                                <div class="terminal-dots">
+                                    <span class="terminal-dot red"></span>
+                                    <span class="terminal-dot yellow"></span>
+                                    <span class="terminal-dot green"></span>
+                                </div>
+                                <span class="terminal-title">project-a</span>
+                            </div>
+                            <div class="terminal-body">
+                                <div class="terminal-line">
+                                    <span class="prompt">$</span>
+                                    <span class="command">claude</span>
+                                </div>
+                                <div class="terminal-line">
+                                    <span class="success">● Running...</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="terminal-window">
+                            <div class="terminal-header">
+                                <div class="terminal-dots">
+                                    <span class="terminal-dot red"></span>
+                                    <span class="terminal-dot yellow"></span>
+                                    <span class="terminal-dot green"></span>
+                                </div>
+                                <span class="terminal-title">project-b</span>
+                            </div>
+                            <div class="terminal-body">
+                                <div class="terminal-line">
+                                    <span class="prompt">$</span>
+                                    <span class="command">claude</span>
+                                </div>
+                                <div class="terminal-line">
+                                    <span class="success">● Ready</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="terminal-window">
+                            <div class="terminal-header">
+                                <div class="terminal-dots">
+                                    <span class="terminal-dot red"></span>
+                                    <span class="terminal-dot yellow"></span>
+                                    <span class="terminal-dot green"></span>
+                                </div>
+                                <span class="terminal-title">project-c</span>
+                            </div>
+                            <div class="terminal-body">
+                                <div class="terminal-line">
+                                    <span class="prompt">$</span>
+                                    <span class="command">claude</span>
+                                </div>
+                                <div class="terminal-line">
+                                    <span class="output">Waiting...</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Method 2: Git Worktrees -->
+            <div class="method-card reveal" style="--card-accent: var(--accent-blue);">
+                <div class="method-icon" style="--icon-bg: var(--glow-blue); --icon-border: rgba(91, 159, 255, 0.3);">
+                    🌿
+                </div>
+                <div class="method-number">Method 02</div>
+                <h3 class="method-title">Git Worktrees Isolation</h3>
+                <p class="method-description">Spawn multiple Claude agents in isolated git worktrees. Work in parallel without conflicts, then merge changes back to base.</p>
+                <div class="method-tags">
+                    <span class="tag">Git</span>
+                    <span class="tag">Intermediate</span>
+                    <span class="tag">Conflict-Free</span>
+                </div>
+                <div class="diagram">
+                    <div class="diagram-title">Visual: Worktree Structure</div>
+                    <div class="worktree-visual">
+                        <div class="worktree-branch">
+                            <div class="branch-node main">main</div>
+                            <div class="branch-label">Base Branch</div>
+                        </div>
+                        <div class="connector"></div>
+                        <div class="worktree-branch">
+                            <div class="branch-node worktree">wt-1</div>
+                            <div class="branch-label">Agent 1</div>
+                        </div>
+                        <div class="connector"></div>
+                        <div class="worktree-branch">
+                            <div class="branch-node worktree">wt-2</div>
+                            <div class="branch-label">Agent 2</div>
+                        </div>
+                        <div class="connector"></div>
+                        <div class="worktree-branch">
+                            <div class="branch-node worktree">wt-3</div>
+                            <div class="branch-label">Agent 3</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Method 3: Quick Instance Launch -->
+            <div class="method-card reveal" style="--card-accent: var(--accent-green);">
+                <div class="method-icon" style="--icon-bg: rgba(74, 222, 128, 0.15); --icon-border: rgba(74, 222, 128, 0.3);">
+                    ⚡
+                </div>
+                <div class="method-number">Method 03</div>
+                <h3 class="method-title">Quick Instance Launch</h3>
+                <p class="method-description">Press ⌘T (Command + T) in any Claude workspace to instantly spawn a new instance. The fastest way to parallelize.</p>
+                <div class="method-tags">
+                    <span class="tag">Instant</span>
+                    <span class="tag">Beginner</span>
+                    <span class="tag">Native</span>
+                </div>
+                <div class="diagram">
+                    <div class="diagram-title">Visual: Quick Launch Flow</div>
+                    <div class="flow-visual">
+                        <div class="flow-step">
+                            <div class="flow-icon">📝</div>
+                            <div class="flow-label">Working</div>
+                        </div>
+                        <span class="flow-arrow">→</span>
+                        <div class="flow-step">
+                            <div class="flow-icon">⌨️</div>
+                            <div class="flow-label">⌘ + T</div>
+                        </div>
+                        <span class="flow-arrow">→</span>
+                        <div class="flow-step">
+                            <div class="flow-icon">✨</div>
+                            <div class="flow-label">New Instance</div>
+                        </div>
+                        <span class="flow-arrow">→</span>
+                        <div class="flow-step">
+                            <div class="flow-icon">🔄</div>
+                            <div class="flow-label">Parallel Work</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Method 4: Cowork Orchestration - Featured -->
+            <div class="method-card featured reveal" style="--card-accent: var(--accent-purple); cursor: pointer;" onclick="openCoworkModal()">
+                <div class="method-icon" style="--icon-bg: rgba(167, 139, 250, 0.15); --icon-border: rgba(167, 139, 250, 0.3);">
+                    🎯
+                </div>
+                <div class="method-number">Method 04 — Advanced</div>
+                <h3 class="method-title">Claude Cowork Orchestration</h3>
+                <p class="method-description">Use Claude Cowork as your conductor—it automatically spawns sub-agents for parallelizable tasks, manages file operations in isolated sandboxes, and can run for hours unattended. Point it at a folder, describe your goal, and let it orchestrate the work.</p>
+                <div class="method-tags">
+                    <span class="tag">Cowork</span>
+                    <span class="tag">macOS Desktop</span>
+                    <span class="tag">Pro / Max Plans</span>
+                    <span class="tag">Autonomous</span>
+                </div>
+                <div class="diagram">
+                    <div class="diagram-title">Visual: Orchestration Hierarchy</div>
+                    <div style="display: flex; flex-direction: column; align-items: center; gap: 1.5rem;">
+                        <div style="display: flex; align-items: center; gap: 1rem;">
+                            <div style="background: linear-gradient(135deg, var(--accent-purple), var(--accent-blue)); padding: 1rem 1.5rem; border-radius: 12px; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; font-weight: 600;">Claude Cowork</div>
+                        </div>
+                        <div style="width: 2px; height: 20px; background: var(--accent-purple);"></div>
+                        <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; color: var(--text-muted);">Sub-agent coordination (automatic)</div>
+                        <div style="display: flex; gap: 0.5rem;">
+                            <div style="width: 2px; height: 20px; background: var(--accent-green);"></div>
+                            <div style="width: 2px; height: 20px; background: var(--accent-green);"></div>
+                            <div style="width: 2px; height: 20px; background: var(--accent-green);"></div>
+                            <div style="width: 2px; height: 20px; background: var(--accent-green);"></div>
+                        </div>
+                        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; justify-content: center;">
+                            <div style="background: var(--accent-orange); color: var(--bg-primary); padding: 0.5rem 0.75rem; border-radius: 6px; font-family: 'JetBrains Mono', monospace; font-size: 0.65rem; font-weight: 600;">Task 1 ●</div>
+                            <div style="background: var(--accent-orange); color: var(--bg-primary); padding: 0.5rem 0.75rem; border-radius: 6px; font-family: 'JetBrains Mono', monospace; font-size: 0.65rem; font-weight: 600;">Task 2 ●</div>
+                            <div style="background: var(--accent-orange); color: var(--bg-primary); padding: 0.5rem 0.75rem; border-radius: 6px; font-family: 'JetBrains Mono', monospace; font-size: 0.65rem; font-weight: 600;">Task 3 ●</div>
+                            <div style="background: var(--accent-orange); color: var(--bg-primary); padding: 0.5rem 0.75rem; border-radius: 6px; font-family: 'JetBrains Mono', monospace; font-size: 0.65rem; font-weight: 600;">Task 4 ●</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="click-hint">
+                    <span>👆</span>
+                    <span>Click for step-by-step setup guide</span>
+                </div>
+            </div>
+
+            <!-- Method 5: Background Daemon -->
+            <div class="method-card reveal" style="--card-accent: var(--accent-cyan);">
+                <div class="method-icon" style="--icon-bg: rgba(34, 211, 238, 0.15); --icon-border: rgba(34, 211, 238, 0.3);">
+                    👁️
+                </div>
+                <div class="method-number">Method 05</div>
+                <h3 class="method-title">Map Daemon + Tiled View</h3>
+                <p class="method-description">Start a "map daemon" to automatically spawn and manage agents. Attach to single sessions or view all in a tiled layout for real-time monitoring.</p>
+                <div class="method-tags">
+                    <span class="tag">Daemon</span>
+                    <span class="tag">Advanced</span>
+                    <span class="tag">Monitoring</span>
+                </div>
+                <div class="diagram">
+                    <div class="diagram-title">Visual: Tiled Agent View</div>
+                    <div class="agent-grid">
+                        <div class="agent-cell active"><div class="agent-pulse"></div></div>
+                        <div class="agent-cell active"><div class="agent-pulse"></div></div>
+                        <div class="agent-cell">idle</div>
+                        <div class="agent-cell active"><div class="agent-pulse"></div></div>
+                        <div class="agent-cell">idle</div>
+                        <div class="agent-cell active"><div class="agent-pulse"></div></div>
+                        <div class="agent-cell active"><div class="agent-pulse"></div></div>
+                        <div class="agent-cell">idle</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="quickstart" id="quickstart">
+        <div class="quickstart-grid">
+            <div class="quickstart-content reveal">
+                <div class="section-label">Quick Start</div>
+                <h2>Essential Shortcuts</h2>
+                <p>Master these keyboard commands to rapidly spawn and manage multiple Claude instances across your development environment.</p>
+                <div class="shortcut-list">
+                    <div class="shortcut-item">
+                        <div class="shortcut-keys">
+                            <span class="key">⌘</span>
+                            <span class="key">T</span>
+                        </div>
+                        <span class="shortcut-desc">New Claude instance in workspace</span>
+                    </div>
+                    <div class="shortcut-item">
+                        <div class="shortcut-keys">
+                            <span class="key">⌘</span>
+                            <span class="key">`</span>
+                        </div>
+                        <span class="shortcut-desc">Toggle between terminals</span>
+                    </div>
+                    <div class="shortcut-item">
+                        <div class="shortcut-keys">
+                            <span class="key">⌘</span>
+                            <span class="key">⇧</span>
+                            <span class="key">[</span>
+                        </div>
+                        <span class="shortcut-desc">Previous terminal tab</span>
+                    </div>
+                    <div class="shortcut-item">
+                        <div class="shortcut-keys">
+                            <span class="key">⌘</span>
+                            <span class="key">⇧</span>
+                            <span class="key">]</span>
+                        </div>
+                        <span class="shortcut-desc">Next terminal tab</span>
+                    </div>
+                </div>
+            </div>
+            <div class="code-block reveal">
+                <div class="code-header">
+                    <span class="code-filename">git-worktree-setup.sh</span>
+                    <button class="code-copy" onclick="copyCode()">Copy</button>
+                </div>
+                <div class="code-content">
+                    <div class="code-line">
+                        <span class="line-number">1</span>
+                        <span class="code-text"><span class="code-comment"># Create isolated worktrees for parallel agents</span></span>
+                    </div>
+                    <div class="code-line">
+                        <span class="line-number">2</span>
+                        <span class="code-text"><span class="code-keyword">git</span> worktree add ../agent-1 -b feature-1</span>
+                    </div>
+                    <div class="code-line">
+                        <span class="line-number">3</span>
+                        <span class="code-text"><span class="code-keyword">git</span> worktree add ../agent-2 -b feature-2</span>
+                    </div>
+                    <div class="code-line">
+                        <span class="line-number">4</span>
+                        <span class="code-text"><span class="code-keyword">git</span> worktree add ../agent-3 -b feature-3</span>
+                    </div>
+                    <div class="code-line">
+                        <span class="line-number">5</span>
+                        <span class="code-text"></span>
+                    </div>
+                    <div class="code-line">
+                        <span class="line-number">6</span>
+                        <span class="code-text"><span class="code-comment"># Launch Claude in each worktree</span></span>
+                    </div>
+                    <div class="code-line">
+                        <span class="line-number">7</span>
+                        <span class="code-text"><span class="code-keyword">cd</span> ../agent-1 && <span class="code-function">claude</span> &</span>
+                    </div>
+                    <div class="code-line">
+                        <span class="line-number">8</span>
+                        <span class="code-text"><span class="code-keyword">cd</span> ../agent-2 && <span class="code-function">claude</span> &</span>
+                    </div>
+                    <div class="code-line">
+                        <span class="line-number">9</span>
+                        <span class="code-text"><span class="code-keyword">cd</span> ../agent-3 && <span class="code-function">claude</span> &</span>
+                    </div>
+                    <div class="code-line">
+                        <span class="line-number">10</span>
+                        <span class="code-text"></span>
+                    </div>
+                    <div class="code-line">
+                        <span class="line-number">11</span>
+                        <span class="code-text"><span class="code-comment"># Merge back when complete</span></span>
+                    </div>
+                    <div class="code-line">
+                        <span class="line-number">12</span>
+                        <span class="code-text"><span class="code-keyword">git</span> merge feature-1 feature-2 feature-3</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="workflow" id="workflow">
+        <div class="workflow-container">
+            <div class="section-header reveal">
+                <div class="section-label">Step by Step</div>
+                <h2 class="section-title">The Parallel Workflow</h2>
+                <p class="section-subtitle">A proven approach to maximizing throughput while maintaining code quality and avoiding conflicts.</p>
+            </div>
+
+            <div class="workflow-steps">
+                <div class="workflow-step reveal">
+                    <div class="step-marker">1</div>
+                    <div class="step-content">
+                        <h4 class="step-title">Plan & Decompose</h4>
+                        <p class="step-description">Break your project into independent tasks that can run in parallel without stepping on each other. Create context documents for each task.</p>
+                        <div class="step-tip">
+                            <span class="tip-icon">💡</span>
+                            <span>Use Claude Cowork to auto-generate task markdown files with vision docs and style guides included.</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="workflow-step reveal">
+                    <div class="step-marker">2</div>
+                    <div class="step-content">
+                        <h4 class="step-title">Isolate Environments</h4>
+                        <p class="step-description">Set up git worktrees or separate directories for each agent. This prevents file conflicts and allows parallel writes to the same codebase.</p>
+                        <div class="step-tip">
+                            <span class="tip-icon">💡</span>
+                            <span>Each worktree gets its own working directory but shares the same git history—perfect for feature branches.</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="workflow-step reveal">
+                    <div class="step-marker">3</div>
+                    <div class="step-content">
+                        <h4 class="step-title">Spawn Agents</h4>
+                        <p class="step-description">Launch Claude instances in each environment. Assign specific roles or tasks to each agent. Consider using "aggressive" mode for trusted automated tasks.</p>
+                        <div class="step-tip">
+                            <span class="tip-icon">💡</span>
+                            <span>Run <code>claude --dangerously-skip-permissions</code> for auto-accept mode on trusted tasks. Use in containers for safety!</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="workflow-step reveal">
+                    <div class="step-marker">4</div>
+                    <div class="step-content">
+                        <h4 class="step-title">Monitor & Rotate</h4>
+                        <p class="step-description">Toggle between agents while they process. Queue up next prompts while waiting on responses. Use tiled views to monitor all agents simultaneously.</p>
+                        <div class="step-tip">
+                            <span class="tip-icon">💡</span>
+                            <span>Claude Code natively supports synthesizing outputs from parallel agents—let it merge context for you.</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="workflow-step reveal">
+                    <div class="step-marker">5</div>
+                    <div class="step-content">
+                        <h4 class="step-title">Review & Merge</h4>
+                        <p class="step-description">Once all agents complete, review changes in each branch. Resolve any conflicts, run tests, and merge back to main. Clean up worktrees when done.</p>
+                        <div class="step-tip">
+                            <span class="tip-icon">💡</span>
+                            <span>Consider integrating Gemini or another tool for visual QA testing before final merge.</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="practices" id="practices">
+        <div class="section-header reveal">
+            <div class="section-label">Best Practices</div>
+            <h2 class="section-title">Pro Tips</h2>
+            <p class="section-subtitle">Hard-won wisdom from power users running parallel Claude workflows.</p>
+        </div>
+
+        <div class="practices-grid">
+            <div class="practice-card reveal">
+                <div class="practice-icon">💾</div>
+                <h4 class="practice-title">Always Backup First</h4>
+                <p class="practice-desc">Before granting any agent folder access, back up important files. Agents can modify or delete files if misinterpreted—protect your work.</p>
+            </div>
+            <div class="practice-card reveal">
+                <div class="practice-icon">🎯</div>
+                <h4 class="practice-title">Keep Projects Distinct</h4>
+                <p class="practice-desc">Only parallelize across separate projects or truly independent features. Overlapping code changes create merge nightmares.</p>
+            </div>
+            <div class="practice-card reveal">
+                <div class="practice-icon">📋</div>
+                <h4 class="practice-title">Assign Specific Roles</h4>
+                <p class="practice-desc">Give each agent a clear, focused responsibility. "You handle tests, you handle API, you handle UI" prevents duplicate work.</p>
+            </div>
+            <div class="practice-card reveal">
+                <div class="practice-icon">🔄</div>
+                <h4 class="practice-title">Rotate Strategically</h4>
+                <p class="practice-desc">Queue up your next prompt while waiting on a response. By the time you finish typing, the other agent is likely done.</p>
+            </div>
+            <div class="practice-card reveal">
+                <div class="practice-icon">📁</div>
+                <h4 class="practice-title">Use Context Docs</h4>
+                <p class="practice-desc">Create CONTEXT.md or CLAUDE.md files in each workspace with project vision, style guides, and constraints for consistent outputs.</p>
+            </div>
+            <div class="practice-card reveal">
+                <div class="practice-icon">🐳</div>
+                <h4 class="practice-title">Container for YOLO Mode</h4>
+                <p class="practice-desc">Running --dangerously-skip-permissions? Use Docker containers without network access to limit blast radius if something goes wrong.</p>
+            </div>
+            <div class="practice-card reveal">
+                <div class="practice-icon">🧹</div>
+                <h4 class="practice-title">Clean Up Worktrees</h4>
+                <p class="practice-desc">Remove worktrees after merging with <code>git worktree remove</code>. They persist on disk and can clutter your system.</p>
+            </div>
+            <div class="practice-card reveal">
+                <div class="practice-icon">🔀</div>
+                <h4 class="practice-title">Merge Frequently</h4>
+                <p class="practice-desc">Pull and merge updates from main regularly. This prevents your worktree from drifting too far and creating massive conflicts.</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="cta">
+        <div class="cta-content reveal">
+            <h2>Ready to Multiply<br>Your Productivity?</h2>
+            <p>Start with Method 01 or 03 for quick wins, then graduate to advanced orchestration as your workflows mature.</p>
+            <div class="cta-buttons">
+                <a href="https://code.claude.com/docs" class="btn btn-primary" target="_blank">
+                    Claude Code Docs
+                    <span>→</span>
+                </a>
+                <a href="https://support.claude.com/en/articles/13345190-getting-started-with-cowork" class="btn btn-secondary" target="_blank">
+                    Cowork Guide
+                    <span>↗</span>
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <footer>
+        <div class="footer-content">
+            <p>Built with care for the Claude community. Not affiliated with Anthropic.</p>
+            <p style="margin-top: 0.5rem;">Inspired by workflows shared on <a href="https://x.com" target="_blank">X/Twitter</a></p>
+        </div>
+    </footer>
+
+    <!-- Cowork Tutorial Modal -->
+    <div class="modal-overlay" id="coworkModal">
+        <div class="modal">
+            <div class="modal-header">
+                <button class="modal-close" onclick="closeCoworkModal()">&times;</button>
+                <div class="modal-badge">Complete Beginner Guide</div>
+                <h2 class="modal-title">Setting Up Claude Cowork</h2>
+                <p class="modal-subtitle">Follow these steps to run parallel AI workflows on your Mac—no terminal required.</p>
+            </div>
+            <div class="modal-content">
+                <!-- Progress Bar -->
+                <div class="tutorial-progress">
+                    <div class="progress-step active" data-step="1"></div>
+                    <div class="progress-step" data-step="2"></div>
+                    <div class="progress-step" data-step="3"></div>
+                    <div class="progress-step" data-step="4"></div>
+                    <div class="progress-step" data-step="5"></div>
+                    <div class="progress-step" data-step="6"></div>
+                </div>
+
+                <!-- Step 1: Requirements -->
+                <div class="tutorial-step active" data-step="1">
+                    <div class="step-number-large">Step 1 of 6</div>
+                    <h3 class="step-title-large">Check Your Requirements</h3>
+                    <p class="step-description-large">Before we begin, let's make sure you have everything needed to use Claude Cowork.</p>
+                    
+                    <div class="checklist">
+                        <div class="checklist-item">
+                            <div class="check-icon">✓</div>
+                            <div class="checklist-text"><strong>macOS Computer</strong> — Cowork is currently only available on Mac. Windows support is planned but not yet available.</div>
+                        </div>
+                        <div class="checklist-item">
+                            <div class="check-icon">✓</div>
+                            <div class="checklist-text"><strong>Claude Subscription</strong> — You need a paid Claude plan (Pro, Max, Team, or Enterprise). Cowork is not available on free plans.</div>
+                        </div>
+                        <div class="checklist-item">
+                            <div class="check-icon">✓</div>
+                            <div class="checklist-text"><strong>Internet Connection</strong> — Required throughout your session. If you lose connection, your task will pause.</div>
+                        </div>
+                        <div class="checklist-item">
+                            <div class="check-icon">✓</div>
+                            <div class="checklist-text"><strong>Files to Work With</strong> — Have a folder ready with the files you want Claude to process (documents, images, spreadsheets, etc.).</div>
+                        </div>
+                    </div>
+
+                    <div class="pricing-cards">
+                        <div class="pricing-card">
+                            <div class="pricing-name">Pro</div>
+                            <div class="pricing-price">$20/mo</div>
+                            <div class="pricing-note">Good for getting started</div>
+                        </div>
+                        <div class="pricing-card recommended">
+                            <div class="pricing-name">Max</div>
+                            <div class="pricing-price">$100/mo</div>
+                            <div class="pricing-note">5× more usage</div>
+                        </div>
+                        <div class="pricing-card">
+                            <div class="pricing-name">Max Ultra</div>
+                            <div class="pricing-price">$200/mo</div>
+                            <div class="pricing-note">20× more usage</div>
+                        </div>
+                    </div>
+
+                    <div class="info-box">
+                        <span class="info-icon">💡</span>
+                        <div class="info-text"><strong>Tip:</strong> Cowork uses more tokens than regular chat because it executes multi-step tasks autonomously. If you plan to use it frequently, consider the Max plan for higher limits.</div>
+                    </div>
+
+                    <div class="nav-buttons">
+                        <div></div>
+                        <button class="nav-btn nav-btn-next" onclick="nextStep()">
+                            I'm Ready
+                            <span>→</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Step 2: Download & Install -->
+                <div class="tutorial-step" data-step="2">
+                    <div class="step-number-large">Step 2 of 6</div>
+                    <h3 class="step-title-large">Download Claude Desktop</h3>
+                    <p class="step-description-large">Cowork runs inside the Claude Desktop app—not the website. Let's get it installed.</p>
+
+                    <div class="step-visual">
+                        <div class="visual-label">What You'll See</div>
+                        <div class="screenshot-placeholder">
+                            <div class="icon">📥</div>
+                            <div>Visit <strong>claude.ai/download</strong> and click "Download for macOS"</div>
+                        </div>
+                    </div>
+
+                    <div class="checklist">
+                        <div class="checklist-item">
+                            <div class="check-icon">1</div>
+                            <div class="checklist-text">Go to <strong>claude.ai/download</strong> in your web browser</div>
+                        </div>
+                        <div class="checklist-item">
+                            <div class="check-icon">2</div>
+                            <div class="checklist-text">Click <strong>"Download for macOS"</strong> to get the .dmg file</div>
+                        </div>
+                        <div class="checklist-item">
+                            <div class="check-icon">3</div>
+                            <div class="checklist-text">Open the downloaded file and <strong>drag Claude to your Applications folder</strong></div>
+                        </div>
+                        <div class="checklist-item">
+                            <div class="check-icon">4</div>
+                            <div class="checklist-text">Launch Claude from Applications and <strong>sign in</strong> with your account</div>
+                        </div>
+                    </div>
+
+                    <div class="info-box">
+                        <span class="info-icon">🔐</span>
+                        <div class="info-text"><strong>First Launch:</strong> macOS may ask you to confirm you want to open an app from the internet. Click "Open" to proceed. You may also need to grant permissions in System Settings.</div>
+                    </div>
+
+                    <div class="nav-buttons">
+                        <button class="nav-btn nav-btn-back" onclick="prevStep()">
+                            <span>←</span>
+                            Back
+                        </button>
+                        <button class="nav-btn nav-btn-next" onclick="nextStep()">
+                            App Installed
+                            <span>→</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Step 3: Navigate to Cowork -->
+                <div class="tutorial-step" data-step="3">
+                    <div class="step-number-large">Step 3 of 6</div>
+                    <h3 class="step-title-large">Find the Cowork Tab</h3>
+                    <p class="step-description-large">The Claude Desktop app has multiple modes. Let's navigate to Cowork.</p>
+
+                    <div class="step-visual">
+                        <div class="visual-label">App Interface</div>
+                        <div style="display: flex; gap: 1rem; padding: 1rem; background: var(--bg-primary); border-radius: 12px;">
+                            <div style="padding: 0.75rem 1.5rem; background: var(--bg-tertiary); border-radius: 8px; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: var(--text-muted);">Chat</div>
+                            <div style="padding: 0.75rem 1.5rem; background: linear-gradient(135deg, var(--accent-purple), var(--accent-blue)); border-radius: 8px; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: white; font-weight: 600;">Cowork ←</div>
+                            <div style="padding: 0.75rem 1.5rem; background: var(--bg-tertiary); border-radius: 8px; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: var(--text-muted);">Code</div>
+                        </div>
+                    </div>
+
+                    <div class="checklist">
+                        <div class="checklist-item">
+                            <div class="check-icon">1</div>
+                            <div class="checklist-text">Open the Claude Desktop app on your Mac</div>
+                        </div>
+                        <div class="checklist-item">
+                            <div class="check-icon">2</div>
+                            <div class="checklist-text">Look at the <strong>left sidebar</strong> or top navigation for mode tabs</div>
+                        </div>
+                        <div class="checklist-item">
+                            <div class="check-icon">3</div>
+                            <div class="checklist-text">Click on <strong>"Cowork"</strong> to switch to task mode</div>
+                        </div>
+                    </div>
+
+                    <div class="info-box">
+                        <span class="info-icon">🎯</span>
+                        <div class="info-text"><strong>What's the difference?</strong> Chat is for questions and conversation. Cowork is for delegating tasks—you describe what you want done, and Claude executes it autonomously while you do other things.</div>
+                    </div>
+
+                    <div class="nav-buttons">
+                        <button class="nav-btn nav-btn-back" onclick="prevStep()">
+                            <span>←</span>
+                            Back
+                        </button>
+                        <button class="nav-btn nav-btn-next" onclick="nextStep()">
+                            Found It
+                            <span>→</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Step 4: Grant Folder Access -->
+                <div class="tutorial-step" data-step="4">
+                    <div class="step-number-large">Step 4 of 6</div>
+                    <h3 class="step-title-large">Grant Folder Access</h3>
+                    <p class="step-description-large">Cowork needs permission to read and write files. You control exactly which folders Claude can access.</p>
+
+                    <div class="warning-box">
+                        <span class="warning-icon">⚠️</span>
+                        <div class="warning-text"><strong>Important Safety Note:</strong> Only grant access to folders containing files you want Claude to work with. Create a dedicated project folder rather than granting access to your entire Documents or Desktop. <strong>Always back up important files first.</strong></div>
+                    </div>
+
+                    <div class="step-visual">
+                        <div class="visual-label">Recommended Folder Structure</div>
+                        <div class="folder-structure">
+                            <div class="folder-item">
+                                <span class="folder-icon">📁</span>
+                                <span class="file-name">Claude-Projects</span>
+                            </div>
+                            <div class="folder-item indent-1">
+                                <span class="folder-icon">📁</span>
+                                <span class="file-name highlight">expense-reports</span>
+                                <span style="color: var(--accent-green); font-size: 0.7rem; margin-left: 0.5rem;">← Grant access here</span>
+                            </div>
+                            <div class="folder-item indent-2">
+                                <span class="file-icon">📄</span>
+                                <span class="file-name">receipt-1.jpg</span>
+                            </div>
+                            <div class="folder-item indent-2">
+                                <span class="file-icon">📄</span>
+                                <span class="file-name">receipt-2.png</span>
+                            </div>
+                            <div class="folder-item indent-2">
+                                <span class="file-icon">📄</span>
+                                <span class="file-name">template.xlsx</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="checklist">
+                        <div class="checklist-item">
+                            <div class="check-icon">1</div>
+                            <div class="checklist-text">Create a <strong>dedicated project folder</strong> on your Mac (e.g., in Documents)</div>
+                        </div>
+                        <div class="checklist-item">
+                            <div class="check-icon">2</div>
+                            <div class="checklist-text">Move or copy the files you want Claude to work with into that folder</div>
+                        </div>
+                        <div class="checklist-item">
+                            <div class="check-icon">3</div>
+                            <div class="checklist-text">In Cowork, click the <strong>folder icon</strong> or "Add folder" to attach your project folder</div>
+                        </div>
+                        <div class="checklist-item">
+                            <div class="check-icon">4</div>
+                            <div class="checklist-text">Confirm the permission when macOS asks (first time only)</div>
+                        </div>
+                    </div>
+
+                    <div class="nav-buttons">
+                        <button class="nav-btn nav-btn-back" onclick="prevStep()">
+                            <span>←</span>
+                            Back
+                        </button>
+                        <button class="nav-btn nav-btn-next" onclick="nextStep()">
+                            Folder Connected
+                            <span>→</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Step 5: Write Your First Task -->
+                <div class="tutorial-step" data-step="5">
+                    <div class="step-number-large">Step 5 of 6</div>
+                    <h3 class="step-title-large">Describe Your Task</h3>
+                    <p class="step-description-large">Now the fun part! Tell Claude what you want accomplished. Be specific about the outcome you want.</p>
+
+                    <div class="prompt-example">
+                        <div class="prompt-label">Example Prompt — Expense Report</div>
+                        <div class="prompt-text">Look at all the receipt images in this folder. Extract the vendor name, date, amount, and category from each receipt. Then create an Excel spreadsheet with:
+- A row for each expense
+- Columns for Date, Vendor, Amount, Category
+- A total row at the bottom with SUM formula
+- Sort by date, newest first</div>
+                    </div>
+
+                    <div class="prompt-example">
+                        <div class="prompt-label">Example Prompt — File Organization</div>
+                        <div class="prompt-text">Organize all files in this folder by:
+1. Creating subfolders for each file type (Documents, Images, Spreadsheets, Other)
+2. Moving files into appropriate folders
+3. Renaming each file with today's date prefix (YYYY-MM-DD)
+4. Creating a summary.txt with a list of all organized files</div>
+                    </div>
+
+                    <div class="prompt-example">
+                        <div class="prompt-label">Example Prompt — Research Synthesis</div>
+                        <div class="prompt-text">Read all the PDF documents in this folder (they're research papers about renewable energy). Create a Word document that summarizes:
+- The main findings from each paper
+- Common themes across all papers  
+- Conflicting viewpoints if any
+- A bibliography section at the end</div>
+                    </div>
+
+                    <div class="info-box">
+                        <span class="info-icon">✨</span>
+                        <div class="info-text"><strong>Pro Tip:</strong> The more specific you are, the better the results. Include the exact output format you want, file names, and any constraints. Claude will make a plan and show you before executing.</div>
+                    </div>
+
+                    <div class="nav-buttons">
+                        <button class="nav-btn nav-btn-back" onclick="prevStep()">
+                            <span>←</span>
+                            Back
+                        </button>
+                        <button class="nav-btn nav-btn-next" onclick="nextStep()">
+                            Ready to Run
+                            <span>→</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Step 6: Monitor & Review -->
+                <div class="tutorial-step" data-step="6">
+                    <div class="step-number-large">Step 6 of 6</div>
+                    <h3 class="step-title-large">Let Claude Work (and Monitor)</h3>
+                    <p class="step-description-large">After you submit your task, Claude will create a plan and start executing. Here's what to expect.</p>
+
+                    <div class="step-visual">
+                        <div class="visual-label">Execution Flow</div>
+                        <div style="display: flex; flex-direction: column; gap: 1rem;">
+                            <div style="display: flex; align-items: center; gap: 1rem;">
+                                <div style="width: 40px; height: 40px; background: var(--accent-purple); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem;">📝</div>
+                                <div>
+                                    <div style="font-weight: 600; margin-bottom: 0.25rem;">Planning</div>
+                                    <div style="color: var(--text-muted); font-size: 0.85rem;">Claude analyzes your request and shows its approach</div>
+                                </div>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 1rem;">
+                                <div style="width: 40px; height: 40px; background: var(--accent-blue); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem;">⚙️</div>
+                                <div>
+                                    <div style="font-weight: 600; margin-bottom: 0.25rem;">Executing</div>
+                                    <div style="color: var(--text-muted); font-size: 0.85rem;">Sub-tasks run in parallel where possible (automatic!)</div>
+                                </div>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 1rem;">
+                                <div style="width: 40px; height: 40px; background: var(--accent-orange); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem;">🔔</div>
+                                <div>
+                                    <div style="font-weight: 600; margin-bottom: 0.25rem;">Permissions</div>
+                                    <div style="color: var(--text-muted); font-size: 0.85rem;">Claude asks before deleting files or significant actions</div>
+                                </div>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 1rem;">
+                                <div style="width: 40px; height: 40px; background: var(--accent-green); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem;">✅</div>
+                                <div>
+                                    <div style="font-weight: 600; margin-bottom: 0.25rem;">Complete</div>
+                                    <div style="color: var(--text-muted); font-size: 0.85rem;">Review results in your folder—polished deliverables ready!</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="warning-box">
+                        <span class="warning-icon">🔌</span>
+                        <div class="warning-text"><strong>Keep the app open!</strong> Claude Desktop must stay running while your task executes. You can minimize it or switch to other apps, but don't quit Claude. Tasks can run for several minutes to hours depending on complexity.</div>
+                    </div>
+
+                    <div class="checklist">
+                        <div class="checklist-item">
+                            <div class="check-icon">✓</div>
+                            <div class="checklist-text"><strong>Queue multiple tasks</strong> — You can add more tasks while Claude is working on the first one</div>
+                        </div>
+                        <div class="checklist-item">
+                            <div class="check-icon">✓</div>
+                            <div class="checklist-text"><strong>Steer mid-task</strong> — Jump in with clarifications or course corrections anytime</div>
+                        </div>
+                        <div class="checklist-item">
+                            <div class="check-icon">✓</div>
+                            <div class="checklist-text"><strong>Review outputs</strong> — Check the generated files in your folder when complete</div>
+                        </div>
+                    </div>
+
+                    <div style="text-align: center; padding: 2rem; background: var(--bg-card); border-radius: 16px; margin-top: 1.5rem;">
+                        <div style="font-size: 3rem; margin-bottom: 1rem;">🎉</div>
+                        <div style="font-family: 'Instrument Serif', serif; font-size: 1.5rem; margin-bottom: 0.5rem;">You're All Set!</div>
+                        <div style="color: var(--text-secondary);">Start with a simple task and experiment. The more you use Cowork, the more you'll discover what's possible.</div>
+                    </div>
+
+                    <div class="nav-buttons">
+                        <button class="nav-btn nav-btn-back" onclick="prevStep()">
+                            <span>←</span>
+                            Back
+                        </button>
+                        <button class="nav-btn nav-btn-next" onclick="closeCoworkModal()">
+                            Done — Let's Go!
+                            <span>🚀</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Scroll reveal animation
+        const observerOptions = {
+            threshold: 0.1,
+            rootMargin: '0px 0px -50px 0px'
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('visible');
+                }
+            });
+        }, observerOptions);
+
+        document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+        // Copy code functionality
+        function copyCode() {
+            const codeContent = document.querySelector('.code-content');
+            const lines = codeContent.querySelectorAll('.code-text');
+            let text = '';
+            lines.forEach(line => {
+                text += line.textContent + '\n';
+            });
+            navigator.clipboard.writeText(text.trim());
+            
+            const btn = document.querySelector('.code-copy');
+            btn.textContent = 'Copied!';
+            setTimeout(() => {
+                btn.textContent = 'Copy';
+            }, 2000);
+        }
+
+        // Smooth scroll for nav links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                }
+            });
+        });
+
+        // Cowork Modal Functions
+        let currentStep = 1;
+        const totalSteps = 6;
+
+        function openCoworkModal() {
+            document.getElementById('coworkModal').classList.add('active');
+            document.body.style.overflow = 'hidden';
+            currentStep = 1;
+            updateStepDisplay();
+        }
+
+        function closeCoworkModal() {
+            document.getElementById('coworkModal').classList.remove('active');
+            document.body.style.overflow = '';
+        }
+
+        function nextStep() {
+            if (currentStep < totalSteps) {
+                currentStep++;
+                updateStepDisplay();
+            }
+        }
+
+        function prevStep() {
+            if (currentStep > 1) {
+                currentStep--;
+                updateStepDisplay();
+            }
+        }
+
+        function updateStepDisplay() {
+            // Update progress bar
+            document.querySelectorAll('.progress-step').forEach((step, index) => {
+                step.classList.remove('active', 'completed');
+                if (index + 1 < currentStep) {
+                    step.classList.add('completed');
+                } else if (index + 1 === currentStep) {
+                    step.classList.add('active');
+                }
+            });
+
+            // Update step content
+            document.querySelectorAll('.tutorial-step').forEach((step, index) => {
+                step.classList.remove('active');
+                if (index + 1 === currentStep) {
+                    step.classList.add('active');
+                }
+            });
+
+            // Scroll modal to top
+            document.querySelector('.modal').scrollTop = 0;
+        }
+
+        // Close modal on escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeCoworkModal();
+            }
+        });
+
+        // Close modal on overlay click
+        document.getElementById('coworkModal').addEventListener('click', (e) => {
+            if (e.target.classList.contains('modal-overlay')) {
+                closeCoworkModal();
+            }
+        });
+    </script>
+</body>
+</html>
